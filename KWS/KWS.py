@@ -1,20 +1,45 @@
 from tensorflow.examples.tutorials.mnist import input_data
 import tensorflow as tf
 import util.read_data as r
-
+import datetime
 
 # initial attributes
 numcep = 26
 mfcc_len = 199
 batch_size = 10
 label = 2
-lr = 1e-4
-epoch = 1
+lr = 1e-5
+epoch = 20
 csv_file = 'record.csv'
 data_path = './data/'
 rd = r.Datas(numcep, batch_size, epoch, data_path, csv_file)
 
 
+def stopwatch(start_duration=0):
+    """This function will toggle a stopwatch.
+    The first call starts it, second call stops it, third call continues it etc.
+    So if you want to measure the accumulated time spent in a certain area of the code,
+    you can surround that code by stopwatch-calls like this:
+
+    .. code:: python
+
+        fun_time = 0 # initializes a stopwatch
+        [...]
+        for i in range(10):
+          [...]
+          # Starts/continues the stopwatch - fun_time is now a point in time (again)
+          fun_time = stopwatch(fun_time)
+          fun()
+          # Pauses the stopwatch - fun_time is now a duration
+          fun_time = stopwatch(fun_time)
+        [...]
+        # The following line only makes sense after an even call of :code:`fun_time = stopwatch(fun_time)`.
+        print 'Time spent in fun():', format_duration(fun_time)
+    """
+    if start_duration == 0:
+        return datetime.datetime.utcnow()
+    else:
+        return datetime.datetime.utcnow() - start_duration
 
 
 def weight_variable(shape):
@@ -111,24 +136,27 @@ def export(step):
 
 sess = tf.InteractiveSession()
 # visualize tensorflow
-writer = tf.summary.FileWriter("TensorBoard/", graph = sess.graph)
+# writer = tf.summary.FileWriter("TensorBoard/", graph = sess.graph)
 # initial variables
 x, y_, y_conv, keep_prob = model()
-print(keep_prob)
 cross_entropy, train_step, accuracy = loss_and_accuracy(y_, y_conv)
 tf.global_variables_initializer().run()
 batch_acc_x, _ = rd.set_acc_data()  # accuracy input all datas
 batch_num = len(batch_acc_x) // batch_size  # input training batch
 
 saver = tf.train.Saver()  # initialize saver for training model
+training_time = stopwatch()
+
 for step in range(epoch):
     train_data(x, y_, keep_prob, train_step)
     if step % 2 == 0 :
         total_loss, total_acc = val_data(x, y_, keep_prob, cross_entropy, accuracy)
-        print("step: %d, loss: %g" % (step, total_loss))
-        print("step: %d, training accuracy: %g" % (step, total_acc))
+        print("step: %d, loss: %g" % (step, total_loss/len(batch_acc_x)))
+        print("step: %d, training accuracy: %g" % (step, total_acc/len(batch_acc_x)))
         if (step + 1) % epoch == 0:
             export_flag = None
         else:
             export_flag = step
         export(export_flag)
+training_time = stopwatch(training_time)
+print("end_training: {}".format(training_time))
